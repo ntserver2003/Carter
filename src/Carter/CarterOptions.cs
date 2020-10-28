@@ -33,6 +33,11 @@ namespace Carter
         public string DocumentTitle { get; set; } = "Carter <3 OpenApi";
 
         /// <summary>
+        /// The version of the API defined by the OpenApi document
+        /// </summary>
+        public string Version { get; set; } = "1.0.0";
+
+        /// <summary>
         /// The servers property of the OpenApi document
         /// </summary>
         public IEnumerable<string> ServerUrls { get; set; } = Array.Empty<string>();
@@ -51,6 +56,13 @@ namespace Carter
         /// Determines if OpenAPI should be mapped and enabled. True by default.
         /// </summary>
         public bool Enabled { get; set; } = true;
+        
+        /// <summary>
+        /// Attribute used to ignore properties from the OpenAPI schema
+        ///
+        /// Note: Set this to null to disable.
+        /// </summary>
+        public Type SchemaIgnoreAttribute { get; set; } = typeof(System.Text.Json.Serialization.JsonIgnoreAttribute);
     }
 
     /// <summary>

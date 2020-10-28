@@ -30,8 +30,8 @@ namespace Carter.OpenApi
                     context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
                     return Task.CompletedTask;
                 }
-                var document = CreateDocument(options, "3.0.0");
-                AddSchema(schemaNavigation, document, context);
+                var document = CreateDocument(options);
+                AddSchema(schemaNavigation, document, context, options.OpenApi);
                 AddSecurityInformation(options, document);
                 AddPaths(schemaNavigation, metaDatas, document, context);
                 
@@ -110,10 +110,17 @@ namespace Carter.OpenApi
                 ElementType = type
             };
 
-            // Prevent the navigation from including the properties of a string and
-            // simple nullable types
-            if (fullName == "System.String" || schemaElement.IsSimpleNullable())
+            // Prevent the navigation from including the properties of a string.
+            if (fullName == "System.String")
             {
+                navigation.Add(fullName, schemaElement);
+                return;
+            }
+
+            // Prevent the navigation from including the properties of a simple nullable type.
+            if (schemaElement.IsSimpleNullable())
+            {
+                schemaElement.ShortName = "NullableOf" + Nullable.GetUnderlyingType(schemaElement.ElementType).Name;
                 navigation.Add(fullName, schemaElement);
                 return;
             }
@@ -323,15 +330,14 @@ namespace Carter.OpenApi
         /// Create a basic OpenApiDocument object.
         /// </summary>
         /// <param name="options">The input Carter options.</param>
-        /// <param name="version">The version string for this OpenApi output.</param>
         /// <returns>A basic OpenApiDocument.</returns>
-        private static OpenApiDocument CreateDocument(CarterOptions options, string version)
+        private static OpenApiDocument CreateDocument(CarterOptions options)
         {
             return new OpenApiDocument
             {
                 Info = new OpenApiInfo
                 {
-                    Version = version,
+                    Version = options.OpenApi.Version,
                     Title = options.OpenApi.DocumentTitle
                 },
                 Servers = new List<OpenApiServer>(options.OpenApi.ServerUrls.Select(x => new OpenApiServer { Url = x })),
@@ -345,7 +351,10 @@ namespace Carter.OpenApi
         /// </summary>
         /// <param name="navigation">The input SchemaElements that have been read from the input classes.</param>
         /// <param name="document">The OpenApiDocument that is to be filled with the schema information.</param>
-        private static void AddSchema(Dictionary<string, SchemaElement> navigation, OpenApiDocument document, HttpContext context)
+        /// <param name="context">The HttpContext.</param>
+        /// <param name="options">The OpenApiOptions specified configuring Carter</param>
+        private static void AddSchema(Dictionary<string, SchemaElement> navigation, OpenApiDocument document,
+            HttpContext context, OpenApiOptions options)
         {
             foreach (var keyValuePair in navigation.OrderBy(o => o.Value.ShortName))
             {
@@ -362,9 +371,19 @@ namespace Carter.OpenApi
                 
                 foreach (var memberKeyValue in keyValuePair.Value.DataMembers)
                 {
-                    var propertySchema = SchemaFromElement(memberKeyValue.Value);
                     var propertyInfo = keyValuePair.Value.ElementType.GetProperties().Where(o => CamelCase(o.Name) == memberKeyValue.Key).SingleOrDefault();
                     object[] attribute = propertyInfo.GetCustomAttributes(typeof(ApiSchemaAttributes), true);
+
+                    if (options.SchemaIgnoreAttribute != null)
+                    {
+                        if (propertyInfo.GetCustomAttribute(options.SchemaIgnoreAttribute,true) != null)
+                        {
+                            continue;
+                        }                        
+                    }
+                    
+                    var propertySchema = SchemaFromElement(memberKeyValue.Value);
+
                     if (attribute.Length > 0)
                     {
                         var myAttribute = (ApiSchemaAttributes)attribute[0];

@@ -1,8 +1,7 @@
-namespace Carter.Tests.Modelbinding
+namespace Carter.Tests.ModelBinding
 {
     using System;
     using System.Collections.Generic;
-    using System.Dynamic;
     using System.IO;
     using System.Linq;
     using System.Net;
@@ -13,10 +12,10 @@ namespace Carter.Tests.Modelbinding
     using System.Threading.Tasks;
     using Carter.ModelBinding;
     using FluentValidation.Results;
+    using global::Newtonsoft.Json;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.AspNetCore.TestHost;
-    using Newtonsoft.Json;
     using Xunit;
 
     public class BindTests
@@ -55,9 +54,9 @@ namespace Carter.Tests.Modelbinding
                 new FormUrlEncodedContent(
                     new[]
                     {
-                        new KeyValuePair<string, string>("MyIntProperty", "1"),
+                        new KeyValuePair<string, string>("myintproperty", "1"),
                         new KeyValuePair<string, string>("MyStringProperty", "hi there"),
-                        new KeyValuePair<string, string>("MyDoubleProperty", "2.3"),
+                        new KeyValuePair<string, string>("MyDoubleProperty", 2.3M.ToString()),
                         new KeyValuePair<string, string>("MyArrayProperty", "1"),
                         new KeyValuePair<string, string>("MyArrayProperty", "2"),
                         new KeyValuePair<string, string>("MyArrayProperty", "3"),
@@ -81,8 +80,8 @@ namespace Carter.Tests.Modelbinding
                         new KeyValuePair<string, string>("MyEmptyGuidProperty", ""),
                         new KeyValuePair<string, string>("MyEmptyNullableGuidProperty", ""),
                         new KeyValuePair<string, string>("MyEmptyNullableDateTimeProperty", ""),
-                        new KeyValuePair<string, string>("MyDecimalProperty", "1234.00"),
-                        new KeyValuePair<string, string>("MyFormattedDecimalProperty", "1,234.00")
+                        new KeyValuePair<string, string>("MyDecimalProperty", 1234M.ToString("0.##")),
+                        new KeyValuePair<string, string>("MyFormattedDecimalProperty", 1234.ToString("N2"))
                     }));
 
             //When
@@ -291,9 +290,10 @@ namespace Carter.Tests.Modelbinding
         [Fact]
         public async Task Should_return_validation_failure_result_when_no_validator_found()
         {
-            await Assert.ThrowsAsync<NullReferenceException>(async() =>  await this.httpClient.PostAsync("/novalidator",
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(async() =>  await this.httpClient.PostAsync("/novalidator",
                 new StringContent("{\"MyIntProperty\":\"-1\",\"MyStringProperty\":\"\"}",
                     Encoding.UTF8, "application/json")));
+            Assert.Equal("Cannot find validator for model of type 'TestModelNoValidator'", ex.Message);
         }
 
         [Fact]
